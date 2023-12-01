@@ -1,0 +1,134 @@
+
+//////////////////////////////////////////////////////////////////////////////
+// Input file for single bunch tracking through lhara ring                  //
+//////////////////////////////////////////////////////////////////////////////
+Title,string="lhara test simulation using OPAL code";
+Option, ASCIIDUMP=TRUE;
+Option, ENABLEHDF5=FALSE;
+OPTION, PSDUMPFREQ=100000;
+Option, VERSION=10900;
+
+Option, ECHO=FALSE;
+
+Option, SPTDUMPFREQ=1;
+////////// MODULES ///////////////////////
+    BOOL DO_MAGNET_FIELD_MAPS=True;
+
+////////// RING  ///////////////
+REAL R0=2.92; // Reference radius for the magnet
+
+REAL E0=15; // MeV
+
+REAL P_MASS=938.272;
+REAL P_CHARGE=1.0;
+REAL P0=((E0+P_MASS)^2-P_MASS^2)^0.5;
+REAL N_CELLS=10;
+REAL RMIN=R0-2.0;
+REAL RMAX=R0+2.0;
+REAL FFA_CELL_LENGTH=2*PI/N_CELLS;
+REAL BFREQ=1;
+
+////////// TRACKING ///////////////
+REAL STEP_SIZE=0.01; // m
+
+//////// MAIN MAGNETS ////////////////
+REAL BF=-0.5495424728544472;
+REAL K_VAL=5.33;
+
+
+REAL LAMBDA=0.083;
+REAL SPIRAL_ANGLE=45.87*PI/180;
+REAL ENGE_0=0.1455;
+REAL ENGE_1=2.2670;
+REAL ENGE_2=-0.6395;
+REAL ENGE_3=1.1558;
+
+REAL FD_OFFSET = 0.0;
+
+REAL CELL_LENGTH = (2*PI/N_CELLS)*R0;
+REAL AZIMUTHAL_EXTENT=CELL_LENGTH;
+
+REAL F_START = (24)*(PI/180)*R0; // see diagram in FFA school slides for an explaination of these lengths
+REAL F_CENTRE_LENGTH = (12*PI/180)*R0;
+REAL F_END = F_START+F_CENTRE_LENGTH;
+
+ringdef: RINGDEFINITION, HARMONIC_NUMBER=1, LAT_RINIT=R0, LAT_PHIINIT=-7, 
+        LAT_THETAINIT=0.0, BEAM_PHIINIT=0.0, BEAM_PRINIT=0.0,
+        BEAM_RINIT=0.0, SYMMETRY=10, RFFREQ=1, IS_CLOSED=true;
+
+IF (DO_MAGNET_FIELD_MAPS) {
+    
+    DUMPFIELDS, X_START=-5.0, X_STEPS=708, DX=0.100/4.*2./3., Y_START=-5.0, Y_STEPS=708, DY=0.100/4.*2./3., Z_START=0.001, Z_STEPS=1, DZ=0.100, FILE_NAME="FieldMapXY.dat";
+    DUMPEMFIELDS, COORDINATE_SYSTEM=CYLINDRICAL, R_START=4.29353, R_STEPS=1, DR=1.e-3, PHI_START=0., PHI_STEPS=180, DPHI=0.01, Z_START=0, Z_STEPS=1, DZ=0.100, T_START=0, T_STEPS=1, DT=1., FILE_NAME="FieldMapRPHI.dat";
+
+}
+
+BUILD_PROBE(NAME, ANGLE, DANGLE): MACRO {
+    NAME: PROBE, xstart=RMIN*1000*cos(ANGLE),  xend=RMAX*1000*cos(ANGLE),  ystart=RMIN*1000*sin(ANGLE),  yend=RMAX*1000*sin(ANGLE);
+}
+
+
+REAL THIS_PROBE_PHI=0;
+BUILD_PROBE(Probe1, THIS_PROBE_PHI, 0);
+THIS_PROBE_PHI = EVAL(THIS_PROBE_PHI+FFA_CELL_LENGTH);
+BUILD_PROBE(Probe2, THIS_PROBE_PHI, 0);
+THIS_PROBE_PHI = EVAL(THIS_PROBE_PHI+FFA_CELL_LENGTH);
+BUILD_PROBE(Probe3, THIS_PROBE_PHI, 0);
+THIS_PROBE_PHI = EVAL(THIS_PROBE_PHI+FFA_CELL_LENGTH);
+BUILD_PROBE(Probe4, THIS_PROBE_PHI, 0);
+THIS_PROBE_PHI = EVAL(THIS_PROBE_PHI+FFA_CELL_LENGTH);
+BUILD_PROBE(Probe5, THIS_PROBE_PHI, 0);
+THIS_PROBE_PHI = EVAL(THIS_PROBE_PHI+FFA_CELL_LENGTH);
+BUILD_PROBE(Probe6, THIS_PROBE_PHI, 0);
+THIS_PROBE_PHI = EVAL(THIS_PROBE_PHI+FFA_CELL_LENGTH);
+BUILD_PROBE(Probe7, THIS_PROBE_PHI, 0);
+THIS_PROBE_PHI = EVAL(THIS_PROBE_PHI+FFA_CELL_LENGTH);
+BUILD_PROBE(Probe8, THIS_PROBE_PHI, 0);
+THIS_PROBE_PHI = EVAL(THIS_PROBE_PHI+FFA_CELL_LENGTH);
+BUILD_PROBE(Probe9, THIS_PROBE_PHI, 0);
+THIS_PROBE_PHI = EVAL(THIS_PROBE_PHI+FFA_CELL_LENGTH);
+BUILD_PROBE(Probe10, THIS_PROBE_PHI, 0);
+THIS_PROBE_PHI = EVAL(THIS_PROBE_PHI+FFA_CELL_LENGTH);
+
+probes: Line = (
+    Probe1, Probe2, Probe3, Probe4,
+    Probe5, Probe6, Probe7, Probe8,
+    Probe9, Probe10
+);
+
+magnet_f_end: ASYMMETRIC_ENGE,
+            X0_START=F_CENTRE_LENGTH/2, X0_END=F_CENTRE_LENGTH/2,
+            LAMBDA_START=LAMBDA, LAMBDA_END=LAMBDA,
+            COEFFICIENTS_START={ENGE_0, ENGE_1, ENGE_2, ENGE_3},
+            COEFFICIENTS_END={ENGE_0, ENGE_1, ENGE_2, ENGE_3};
+
+f_magnet: ScalingFFAMagnet, B0=BF,
+                            R0=R0,
+                            FIELD_INDEX=K_VAL,
+                            TAN_DELTA=tan(SPIRAL_ANGLE),
+                            MAX_Y_POWER=4,
+                            END_FIELD_MODEL=magnet_f_end,
+                            RADIAL_NEG_EXTENT=0.8,
+                            RADIAL_POS_EXTENT=1.2,
+                            MAGNET_START=F_START,
+                            MAGNET_END=F_END + FD_OFFSET, 
+                            HEIGHT=1,
+                            AZIMUTHAL_EXTENT=AZIMUTHAL_EXTENT;
+
+
+cell: Line = (f_magnet);
+l1: Line = (ringdef, probes,
+            cell
+            );
+
+REAL B_FREQ=1; // 1 MHz
+
+Dist1: DISTRIBUTION, TYPE=fromfile, FNAME="CO_coords.dat", INPUTMOUNITS=NONE;
+Fs1:FIELDSOLVER, FSTYPE=None, MX=8, MY=8, MT=8,
+        PARFFTX=true, PARFFTY=true, PARFFTT=false,
+        BCFFTX=open, BCFFTY=open, BCFFTT=open, BBOXINCR=2;
+beam1: BEAM, PARTICLE=PROTON, pc=P0*1e-3, NPART=1, BCURRENT=0, CHARGE=P_CHARGE, mass=P_MASS*1e-3, BFREQ=BFREQ;TRACK, LINE=l1, BEAM=beam1, MAXSTEPS=5379*20, STEPSPERTURN=5379;
+RUN, METHOD="CYCLOTRON-T", BEAM=beam1, FIELDSOLVER=Fs1, DISTRIBUTION=Dist1;
+ENDTRACK;
+STOP;
+
